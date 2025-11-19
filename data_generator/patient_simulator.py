@@ -1,223 +1,221 @@
+import random
+import json
+import uuid
+from datetime import datetime, timedelta
+from typing import Dict, List, Any
 import pandas as pd
 import numpy as np
-from faker import Faker
-from datetime import datetime, timedelta
-import random
-from typing import Dict, List, Any
-import json
 
-class ClinicalTrialSimulator:
-    """
-    Simulates clinical trial data with realistic patient profiles,
-    treatment responses, and adverse events
-    """
-    
+class PatientSimulator:
     def __init__(self):
-        self.fake = Faker()
-        self.drugs = ['Drug_A', 'Drug_B', 'Placebo']
-        self.conditions = ['Hypertension', 'Diabetes', 'Asthma', 'Arthritis', 'Migraine']
-        self.adverse_events = ['Headache', 'Nausea', 'Fatigue', 'Rash', 'Dizziness', 'None']
+        self.conditions = [
+            "Hypertension", "Diabetes Type 2", "Asthma", "COPD", 
+            "Rheumatoid Arthritis", "Osteoporosis", "Migraine"
+        ]
+        self.treatments = {
+            "Hypertension": ["Lisinopril", "Amlodipine", "Metoprolol"],
+            "Diabetes Type 2": ["Metformin", "Insulin", "Glipizide"],
+            "Asthma": ["Albuterol", "Fluticasone", "Montelukast"],
+            "COPD": ["Tiotropium", "Salmeterol", "Prednisone"],
+            "Rheumatoid Arthritis": ["Methotrexate", "Adalimumab", "Etanercept"],
+            "Osteoporosis": ["Alendronate", "Risedronate", "Zoledronic Acid"],
+            "Migraine": ["Sumatriptan", "Rizatriptan", "Propranolol"]
+        }
         
-    def generate_patient_demographics(self, patient_id: int) -> Dict[str, Any]:
-        """Generate realistic patient demographic data"""
-        age = random.randint(18, 85)
+    def generate_demographics(self) -> Dict[str, Any]:
+        """Generate realistic patient demographics"""
         gender = random.choice(['Male', 'Female'])
-        bmi = round(random.uniform(18.5, 35.0), 1)
+        age = random.randint(18, 85)
+        
+        # Weight and height based on gender and age
+        if gender == 'Male':
+            weight = round(random.uniform(60, 120), 1)
+            height = round(random.uniform(160, 190), 1)
+        else:
+            weight = round(random.uniform(45, 90), 1)
+            height = round(random.uniform(150, 175), 1)
+            
+        bmi = round(weight / ((height/100) ** 2), 1)
         
         return {
-            'patient_id': f"PT{patient_id:06d}",
+            'patient_id': str(uuid.uuid4())[:8],
             'age': age,
             'gender': gender,
-            'weight_kg': round(bmi * (1.7 ** 2), 1),  # Approximate weight from BMI
-            'height_cm': random.randint(150, 190),
+            'weight': weight,
+            'height': height,
             'bmi': bmi,
-            'ethnicity': random.choice(['Caucasian', 'African American', 'Asian', 'Hispanic']),
-            'medical_history': random.sample(self.conditions, random.randint(0, 2)),
-            'screening_date': self.fake.date_between(start_date='-30d', end_date='today'),
-            'site_id': f"SITE{random.randint(1, 10):03d}"
+            'condition': random.choice(self.conditions)
         }
     
-    def generate_lab_results(self, patient_id: str, visit_day: int) -> Dict[str, Any]:
-        """Generate laboratory test results with realistic ranges"""
-        base_values = {
-            'hdl_cholesterol': random.uniform(40, 60),
-            'ldl_cholesterol': random.uniform(70, 130),
-            'triglycerides': random.uniform(70, 150),
-            'fasting_glucose': random.uniform(70, 100),
-            'hemoglobin_a1c': random.uniform(4.5, 6.5),
-            'creatinine': random.uniform(0.6, 1.2),
-            'alt': random.uniform(10, 40),
-            'ast': random.uniform(10, 35)
-        }
+    def generate_lab_results(self, patient_data: Dict) -> List[Dict]:
+        """Generate lab results with normal/abnormal ranges"""
+        condition = patient_data['condition']
+        age = patient_data['age']
         
-        # Add some variability and trends
-        results = {}
-        for test, value in base_values.items():
-            # Simulate some patients with abnormal results
-            if random.random() < 0.1:  # 10% chance of abnormal
-                if test in ['ldl_cholesterol', 'triglycerides', 'fasting_glucose', 'hemoglobin_a1c']:
-                    value *= random.uniform(1.3, 2.0)  # Elevated
+        labs = []
+        
+        # Common lab tests with normal ranges
+        lab_tests = [
+            {
+                'name': 'WBC', 'unit': '10^3/μL', 
+                'normal_min': 4.5, 'normal_max': 11.0,
+                'condition_effect': 0.1
+            },
+            {
+                'name': 'Hemoglobin', 'unit': 'g/dL',
+                'normal_min': 12.0, 'normal_max': 16.0,
+                'condition_effect': -0.2
+            },
+            {
+                'name': 'Platelets', 'unit': '10^3/μL',
+                'normal_min': 150, 'normal_max': 450,
+                'condition_effect': 0.05
+            },
+            {
+                'name': 'Sodium', 'unit': 'mmol/L',
+                'normal_min': 135, 'normal_max': 145,
+                'condition_effect': -0.1
+            },
+            {
+                'name': 'Potassium', 'unit': 'mmol/L',
+                'normal_min': 3.5, 'normal_max': 5.2,
+                'condition_effect': 0.05
+            },
+            {
+                'name': 'Creatinine', 'unit': 'mg/dL',
+                'normal_min': 0.6, 'normal_max': 1.3,
+                'condition_effect': 0.3
+            },
+            {
+                'name': 'ALT', 'unit': 'U/L',
+                'normal_min': 7, 'normal_max': 56,
+                'condition_effect': 0.4
+            }
+        ]
+        
+        for test in lab_tests:
+            base_value = random.uniform(test['normal_min'], test['normal_max'])
+            
+            # Apply condition-specific effects
+            if random.random() < 0.3:  # 30% chance of abnormality
+                effect = test['condition_effect']
+                if effect > 0:
+                    value = base_value * (1 + random.uniform(0.1, 0.5))
                 else:
-                    value *= random.uniform(0.5, 0.8)  # Low
-                    
-            results[test] = round(value, 2)
-            
-        return {
-            'patient_id': patient_id,
-            'visit_day': visit_day,
-            'lab_results': results,
-            'collection_timestamp': datetime.now().isoformat()
-        }
-    
-    def generate_vital_signs(self, patient_id: str, visit_day: int, treatment: str) -> Dict[str, Any]:
-        """Generate vital signs with treatment effects"""
-        base_bp = {
-            'systolic': random.randint(110, 140),
-            'diastolic': random.randint(70, 90)
-        }
-        
-        # Simulate treatment effect
-        if treatment == 'Drug_A':
-            base_bp['systolic'] -= random.randint(5, 15)
-            base_bp['diastolic'] -= random.randint(3, 8)
-        elif treatment == 'Drug_B':
-            base_bp['systolic'] -= random.randint(3, 10)
-            base_bp['diastolic'] -= random.randint(2, 6)
-            
-        return {
-            'patient_id': patient_id,
-            'visit_day': visit_day,
-            'blood_pressure': base_bp,
-            'heart_rate': random.randint(60, 100),
-            'temperature_c': round(random.uniform(36.1, 37.2), 1),
-            'respiratory_rate': random.randint(12, 20)
-        }
-    
-    def generate_adverse_events(self, patient_id: str, visit_day: int, treatment: str) -> Dict[str, Any]:
-        """Generate adverse events with treatment-specific probabilities"""
-        ae_probability = 0.15 if treatment != 'Placebo' else 0.08
-        has_ae = random.random() < ae_probability
-        
-        if has_ae:
-            ae = random.choice([ae for ae in self.adverse_events if ae != 'None'])
-            severity = random.choice(['Mild', 'Moderate', 'Severe'])
-            related_to_treatment = random.random() < 0.7 if treatment != 'Placebo' else random.random() < 0.3
-        else:
-            ae = 'None'
-            severity = None
-            related_to_treatment = False
-            
-        return {
-            'patient_id': patient_id,
-            'visit_day': visit_day,
-            'adverse_event': ae,
-            'severity': severity,
-            'related_to_treatment': related_to_treatment,
-            'action_taken': random.choice(['None', 'Dose reduced', 'Treatment interrupted', 'Treatment discontinued']) if has_ae else 'None'
-        }
-    
-    def generate_treatment_response(self, patient_id: str, demographics: Dict, treatment: str) -> List[Dict[str, Any]]:
-        """Generate treatment response over multiple visits"""
-        responses = []
-        baseline_score = random.randint(15, 25)  # Baseline symptom score
-        
-        for visit_day in [0, 7, 14, 28, 56, 84]:  # Standard visit schedule
-            # Calculate improvement based on treatment
-            if visit_day == 0:
-                improvement = 0
+                    value = base_value * (1 - random.uniform(0.1, 0.3))
             else:
-                if treatment == 'Drug_A':
-                    improvement = min(15, baseline_score * (visit_day/84) * random.uniform(0.6, 0.9))
-                elif treatment == 'Drug_B':
-                    improvement = min(12, baseline_score * (visit_day/84) * random.uniform(0.4, 0.7))
-                else:  # Placebo
-                    improvement = min(8, baseline_score * (visit_day/84) * random.uniform(0.1, 0.3))
+                value = base_value
+                
+            is_abnormal = not (test['normal_min'] <= value <= test['normal_max'])
             
-            current_score = max(0, round(baseline_score - improvement, 1))
-            
-            responses.append({
-                'patient_id': patient_id,
-                'visit_day': visit_day,
-                'symptom_score': current_score,
-                'improvement_from_baseline': round(improvement, 1),
-                'patient_global_impression': random.choice(['Very much improved', 'Much improved', 'Minimally improved', 'No change', 'Worse']),
-                'investigator_global_impression': random.choice(['Very much improved', 'Much improved', 'Minimally improved', 'No change', 'Worse'])
+            labs.append({
+                'test_name': test['name'],
+                'test_value': round(value, 2),
+                'normal_min': test['normal_min'],
+                'normal_max': test['normal_max'],
+                'unit': test['unit'],
+                'is_abnormal': is_abnormal,
+                'test_date': (datetime.now() - timedelta(days=random.randint(0, 30))).isoformat()
             })
             
-        return responses
+        return labs
     
-    def generate_complete_trial_data(self, num_patients: int = 100) -> Dict[str, Any]:
-        """Generate complete clinical trial dataset"""
-        print(f"🚀 Generating clinical trial data for {num_patients} patients...")
+    def simulate_treatment_response(self, patient_data: Dict, treatment: str) -> Dict[str, Any]:
+        """Simulate patient response to treatment"""
+        base_efficacy = random.uniform(0.3, 0.9)
         
-        all_data = {
-            'patients': [],
-            'lab_results': [],
-            'vital_signs': [],
-            'adverse_events': [],
-            'treatment_responses': [],
-            'trial_metadata': {
-                'simulation_date': datetime.now().isoformat(),
-                'number_of_patients': num_patients,
-                'number_of_sites': 10,
-                'treatment_arms': self.drugs,
-                'study_duration_days': 84
-            }
+        # Adjust efficacy based on age and condition
+        age_factor = 1.0 - (patient_data['age'] - 40) * 0.005  # Slight decrease with age
+        bmi_factor = 1.1 if patient_data['bmi'] < 25 else 0.9
+        
+        final_efficacy = base_efficacy * age_factor * bmi_factor
+        final_efficacy = max(0.1, min(0.95, final_efficacy))
+        
+        # Simulate side effects
+        side_effects = []
+        side_effect_chance = random.uniform(0.1, 0.4)
+        
+        common_side_effects = ['Headache', 'Nausea', 'Dizziness', 'Fatigue', 'Rash']
+        if random.random() < side_effect_chance:
+            num_effects = random.randint(1, 3)
+            side_effects = random.sample(common_side_effects, num_effects)
+            
+        return {
+            'treatment': treatment,
+            'efficacy_score': round(final_efficacy, 2),
+            'response_category': 'Good' if final_efficacy > 0.7 else 'Moderate' if final_efficacy > 0.4 else 'Poor',
+            'side_effects': side_effects,
+            'treatment_duration_days': random.randint(30, 180)
         }
-        
-        for i in range(1, num_patients + 1):
-            # Assign treatment arm
-            treatment = random.choice(self.drugs)
-            
-            # Generate patient demographics
-            demographics = self.generate_patient_demographics(i)
-            demographics['treatment_arm'] = treatment
-            all_data['patients'].append(demographics)
-            
-            # Generate data for each visit
-            visit_days = [0, 7, 14, 28, 56, 84]
-            for visit_day in visit_days:
-                # Lab results (not every visit)
-                if visit_day in [0, 28, 84] or random.random() < 0.3:
-                    all_data['lab_results'].append(self.generate_lab_results(demographics['patient_id'], visit_day))
-                
-                # Vital signs (every visit)
-                all_data['vital_signs'].append(self.generate_vital_signs(demographics['patient_id'], visit_day, treatment))
-                
-                # Adverse events (reported at visits)
-                all_data['adverse_events'].append(self.generate_adverse_events(demographics['patient_id'], visit_day, treatment))
-            
-            # Treatment response over time
-            all_data['treatment_responses'].extend(
-                self.generate_treatment_response(demographics['patient_id'], demographics, treatment)
-            )
-            
-            if i % 20 == 0:
-                print(f"✅ Generated data for {i} patients...")
-        
-        print("🎉 Clinical trial data generation complete!")
-        return all_data
     
-    def export_to_files(self, data: Dict[str, Any], output_dir: str = 'output'):
-        """Export data to multiple file formats"""
-        import os
-        os.makedirs(output_dir, exist_ok=True)
+    def generate_patient_dataset(self, num_patients: int = 100) -> List[Dict]:
+        """Generate complete patient dataset"""
+        dataset = []
         
-        # Export to JSON
-        with open(f'{output_dir}/clinical_trial_data.json', 'w') as f:
-            json.dump(data, f, indent=2)
+        for _ in range(num_patients):
+            demographics = self.generate_demographics()
+            lab_results = self.generate_lab_results(demographics)
+            condition = demographics['condition']
+            treatment = random.choice(self.treatments[condition])
+            treatment_response = self.simulate_treatment_response(demographics, treatment)
+            
+            patient_record = {
+                **demographics,
+                'lab_results': lab_results,
+                'treatment_response': treatment_response,
+                'adverse_events': self.generate_adverse_events(demographics, treatment),
+                'created_at': datetime.now().isoformat()
+            }
+            
+            dataset.append(patient_record)
+            
+        return dataset
+    
+    def generate_adverse_events(self, patient_data: Dict, treatment: str) -> List[Dict]:
+        """Generate adverse events based on patient and treatment"""
+        events = []
+        base_risk = random.uniform(0.05, 0.2)
         
-        # Export to CSV files
-        pd.DataFrame(data['patients']).to_csv(f'{output_dir}/patients.csv', index=False)
-        pd.DataFrame(data['lab_results']).to_csv(f'{output_dir}/lab_results.csv', index=False)
-        pd.DataFrame(data['vital_signs']).to_csv(f'{output_dir}/vital_signs.csv', index=False)
-        pd.DataFrame(data['adverse_events']).to_csv(f'{output_dir}/adverse_events.csv', index=False)
-        pd.DataFrame(data['treatment_responses']).to_csv(f'{output_dir}/treatment_responses.csv', index=False)
+        # Increase risk for older patients or those with comorbidities
+        if patient_data['age'] > 65:
+            base_risk *= 1.5
+            
+        adverse_events_pool = [
+            {'type': 'Mild', 'events': ['Headache', 'Nausea', 'Dizziness']},
+            {'type': 'Moderate', 'events': ['Hypertension', 'Elevated Liver Enzymes', 'Rash']},
+            {'type': 'Severe', 'events': ['Anaphylaxis', 'Severe Hypertension', 'Liver Toxicity']}
+        ]
         
-        print(f"📁 Data exported to {output_dir}/ directory")
-
-# Example usage
-if __name__ == "__main__":
-    simulator = ClinicalTrialSimulator()
-    trial_data = simulator.generate_complete_trial_data(num_patients=50)
-    simulator.export_to_files(trial_data)
+        for severity_level in adverse_events_pool:
+            if random.random() < base_risk:
+                event = random.choice(severity_level['events'])
+                events.append({
+                    'event_type': event,
+                    'severity': severity_level['type'],
+                    'description': f"{event} possibly related to {treatment}",
+                    'resolved': random.choice([True, False]),
+                    'event_date': (datetime.now() - timedelta(days=random.randint(1, 60))).isoformat()
+                })
+                base_risk *= 0.5  # Reduce probability for multiple events
+                
+        return events
+    
+    def export_to_csv(self, dataset: List[Dict], filename: str):
+        """Export dataset to CSV format"""
+        # Flatten structure for CSV
+        flat_data = []
+        for patient in dataset:
+            flat_patient = {k: v for k, v in patient.items() if k not in ['lab_results', 'treatment_response', 'adverse_events']}
+            flat_patient['treatment'] = patient['treatment_response']['treatment']
+            flat_patient['efficacy_score'] = patient['treatment_response']['efficacy_score']
+            flat_data.append(flat_patient)
+            
+        df = pd.DataFrame(flat_data)
+        df.to_csv(filename, index=False)
+        print(f"Dataset exported to {filename}")
+    
+    def export_to_json(self, dataset: List[Dict], filename: str):
+        """Export dataset to JSON format"""
+        with open(filename, 'w') as f:
+            json.dump(dataset, f, indent=2)
+        print(f"Dataset exported to {filename}")
