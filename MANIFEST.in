@@ -1,0 +1,6 @@
+include README.md
+include requirements.txt
+include pytest.ini
+include docker-compose.yml
+recursive-include database *.sql
+recursive-include frontend *
