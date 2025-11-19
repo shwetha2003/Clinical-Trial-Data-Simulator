@@ -36,8 +36,8 @@ app.add_middleware(
 # Database configuration
 DB_CONFIG = {
     'host': 'localhost',
-    'user': 'root',
-    'password': 'password',
+    'user': 'your_username',
+    'password': 'your_password',
     'database': 'clinical_trial_simulator'
 }
 
